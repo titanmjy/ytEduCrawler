@@ -1,0 +1,35 @@
+import json
+from selenium import webdriver
+import time
+
+caps = {
+    'browserName': 'chrome',
+    'loggingPrefs': {
+        # console日志信息
+        # 'browser': 'ALL',
+        'driver': 'ALL',
+        'performance': 'ALL',
+    },
+    'goog:chromeOptions': {
+        'perfLoggingPrefs': {
+            'enableNetwork': True,
+        },
+        'w3c': False,
+    },
+}
+driver = webdriver.Chrome(desired_capabilities=caps)
+
+driver.get('https://www.baidu.com')
+
+time.sleep(5)
+
+# logs = driver.get_log('performance')
+# for log in logs:
+    # info = json.loads(log['message'])['message']
+    # print(info)
+    # print(log)
+logs = [json.loads(log['message'])['message']['params'] for log in driver.get_log('performance')]
+for log in logs:
+    print(log)
+driver.close()
+
