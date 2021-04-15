@@ -126,10 +126,10 @@ class ytEduCrawler:
                 print(m3u8_url)
                 course_url_list.append(m3u8_url)
         with open("info.txt","w") as f:
-            for name in course_chapter_video_list:
+            for name, _url in course_chapter_video_list, course_url_list:
+                # for _url in course_url_list:
                 f.write(name + '\n')
-                for _url in course_url_list:
-                    f.write(_url + '\n')
+                f.write(_url + '\n')
         originResp = self.chrome.page_source
         return originResp
 
