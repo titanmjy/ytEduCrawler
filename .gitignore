@@ -1,0 +1,9 @@
+__pycache__
+*.pyc
+local_configs.py
+*.log
+
+.idea/
+venv/
+Downloads/
+.git/

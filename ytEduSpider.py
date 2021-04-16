@@ -13,6 +13,7 @@ class ytEduCrawler:
     start_url = "https://wide.ksbao.com/login"
 
     def __init__(self):
+        # 本地代理server
         self.server = Server(r'D:\Programs\browsermob-proxy-2.1.4-bin\browsermob-proxy-2.1.4\bin\browsermob-proxy.bat')
         self.server.start()
         self.proxy = self.server.create_proxy()
@@ -70,7 +71,8 @@ class ytEduCrawler:
         course_list = self.chrome.find_elements_by_xpath("//ul[@class='content_left']//li")
         course_url_list = []
         course_chapter_video_list = []
-        for course_index in range(1, len(course_list)+1):
+        # for course_index in range(1, len(course_list)+1):
+        for course_index in range(1, 2):
             time.sleep(2)
             course = self.chrome.find_element_by_xpath("//ul[@class='content_left']/li["+str(course_index)+"]")
             course_name = course.text
@@ -97,6 +99,10 @@ class ytEduCrawler:
                         course_chapter_video_list.append(course_name+"_"+chapter_name+"_"+video_name)
                         video.click()
                         time.sleep(5)
+                else:
+                    video = self.chrome.find_element_by_xpath("//div[@class='listPart']//li[@class='clearfix'][1]")
+                    video_name = video.text
+                    course_chapter_video_list.append(course_name + "_" + chapter_name + "_" + video_name)
                 self.chrome.back()
         #         # 视频列表
         #         EC.presence_of_element_located((By.TAG_NAME, "video"))
@@ -119,21 +125,28 @@ class ytEduCrawler:
         #         # //div[@class='exambt']
         #         self.chrome.back()
 
+        # 根据请求记录获取m3u8的url地址
         request_logs = self.proxy.har
         for entry in request_logs['log']['entries']:
             m3u8_url = entry['request']['url']
             if "m3u8" in m3u8_url:
                 print(m3u8_url)
                 course_url_list.append(m3u8_url)
-        with open("info.txt","w") as f:
-            for name, _url in zip(course_chapter_video_list, course_url_list):
-                # for _url in course_url_list:
-                f.write(name + '\n')
-                f.write(_url + '\n')
+        vedio_download(course_chapter_video_list,course_url_list)
         originResp = self.chrome.page_source
         return originResp
 
-if __name__=="__main__":
+import os
+def vedio_download(name_list, url_list):
+    # with open("info.txt", "w") as f:
+    #     for name, _url in zip(name_list, url_list):
+    #         f.write(name + '\n')
+    #         f.write(_url + '\n')
+    for name,_url in zip(name_list, url_list):
+        os.system("start N_m3u8DL-CLI "+_url+" --saveName "+name)
+
+
+if __name__ == "__main__":
     spider = ytEduCrawler()
     spider.start_request()
     spider.quit()
