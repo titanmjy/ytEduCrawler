@@ -126,7 +126,7 @@ class ytEduCrawler:
                 print(m3u8_url)
                 course_url_list.append(m3u8_url)
         with open("info.txt","w") as f:
-            for name, _url in course_chapter_video_list, course_url_list:
+            for name, _url in zip(course_chapter_video_list, course_url_list):
                 # for _url in course_url_list:
                 f.write(name + '\n')
                 f.write(_url + '\n')
