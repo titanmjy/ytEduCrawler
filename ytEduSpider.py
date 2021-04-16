@@ -137,13 +137,11 @@ class ytEduCrawler:
         return originResp
 
 import os
+import subprocess
 def vedio_download(name_list, url_list):
-    # with open("info.txt", "w") as f:
-    #     for name, _url in zip(name_list, url_list):
-    #         f.write(name + '\n')
-    #         f.write(_url + '\n')
-    for name,_url in zip(name_list, url_list):
+    for name, _url in zip(name_list, url_list):
         os.system("start N_m3u8DL-CLI "+_url+" --saveName "+name)
+        # myPopenObj = subprocess.Popen("start N_m3u8DL-CLI "+_url+" --saveName "+name)
 
 
 if __name__ == "__main__":
