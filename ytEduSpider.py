@@ -5,14 +5,14 @@ from selenium import webdriver
 from browsermobproxy import Server
 import time
 from selenium.webdriver.chrome.options import Options
+import os
 
 
 class ytEduCrawler:
-
     domain = "ksbao.com"
     start_url = "https://wide.ksbao.com/login"
 
-    def __init__(self):
+    def __init__(self, domain=domain):
         # 本地代理server
         self.server = Server(r'D:\Programs\browsermob-proxy-2.1.4-bin\browsermob-proxy-2.1.4\bin\browsermob-proxy.bat')
         self.server.start()
@@ -23,28 +23,14 @@ class ytEduCrawler:
         chrome_options.add_argument('--ignore-certificate-errors')
         chrome_options.add_argument('--disable-gpu')
         self.chrome = webdriver.Chrome(chrome_options=chrome_options)
+        self.proxy.new_har(domain)
 
     def quit(self):
         self.server.stop()
         self.chrome.quit()
 
-    def test(self):
-        self.proxy.new_har("hupu.com")
-        # self.proxy.new_har("hupu.com",options={'captureHeaders': True, 'captureContent': True})
-        self.chrome.get("http://nba.hupu.com")
-        # time.sleep(5)
-        result = self.proxy.har
-        for entry in result['log']['entries']:
-            _url = entry['request']['url']
-            print(_url)
-        self.server.stop()
-
-
-    def start_request(self, url=start_url,domain=domain):
-        self.chrome.get(url)
-        print("============================")
-        # 首页登录
-        self.chrome.get(url)
+    def login(self, login_url):
+        self.chrome.get(login_url)
         wait = WebDriverWait(self.chrome, 10)
         wait.until(EC.presence_of_element_located((By.XPATH, '/html/body')))
         input_name = self.chrome.find_element_by_id("txtName")
@@ -57,94 +43,108 @@ class ytEduCrawler:
         # 关闭弹框
         # wait.until(EC.presence_of_element_located((By.CLASS_NAME, 'close_btn')))
         # self.chrome.find_element_by_class_name("close_btn").click()
-        self.proxy.new_har(domain)
         # 刷新页面，不用点击弹框关闭
         # self.chrome.refresh()
         # time.sleep(2)
+
+    # 根据请求记录获取m3u8的url地址列表，左开右闭，start_index: 视频编号，从1开始,end_index不包括
+    def get_m3u8_url_list(self, start_index, end_index):
+        course_url_list = []
+        request_logs = self.proxy.har
+        for entry in request_logs['log']['entries']:
+            m3u8_url = entry['request']['url']
+            if "m3u8" in m3u8_url:
+                # print(m3u8_url)
+                course_url_list.append(m3u8_url)
+        return course_url_list[start_index-1:end_index]
+
+    def vedio_download(self, name_list, url_list):
+        for name, _url in zip(name_list, url_list):
+            os.system("start N_m3u8DL-CLI " + _url + " --saveName " + name)
+            # myPopenObj = subprocess.Popen("start N_m3u8DL-CLI "+_url+" --saveName "+name)
+
+    # 控制浏览器依次点击视频，并记录视频名称，左开右闭，start_index: 视频编号，从1开始,end_index不包括
+    def visit_and_get_name_list(self, start_index, end_index):
         # 点击考点精讲
         self.chrome.find_element_by_class_name("rout-kdjj").click()
         time.sleep(2)
         self.chrome.refresh()
         time.sleep(2)
-        # 左侧课程导航，点击
+        # 左侧课程导航目录
         EC.presence_of_element_located((By.CLASS_NAME, "content_left"))
-        course_list = self.chrome.find_elements_by_xpath("//ul[@class='content_left']//li")
-        course_url_list = []
-        course_chapter_video_list = []
-        # for course_index in range(1, len(course_list)+1):
-        for course_index in range(1, 2):
+        menu_list = self.chrome.find_elements_by_xpath("//ul[@class='content_left']//li")
+        menu_chapter_video_list = []
+        for course_index in range(1, len(menu_list)+1):
             time.sleep(2)
-            course = self.chrome.find_element_by_xpath("//ul[@class='content_left']/li["+str(course_index)+"]")
-            course_name = course.text
-            course.click()
+            menu = self.chrome.find_element_by_xpath("//ul[@class='content_left']/li[" + str(course_index) + "]")
+            menu_name = menu.text
+            # 点击左侧课程目录
+            menu.click()
             EC.presence_of_element_located((By.CLASS_NAME, "content_rig"))
             time.sleep(2)
             chapter_list = self.chrome.find_elements_by_xpath("//ul[@class='content_rig']//li")
-            # 点击播放视频
-            for chapter_index in range(1, len(chapter_list)+1):
+            for chapter_index in range(1, len(chapter_list) + 1):
                 time.sleep(2)
-                current_course = self.chrome.find_element_by_xpath("//ul[@class='content_left']/li[" + str(course_index) + "]")
-                current_course.click()
+                # 点击左侧具体课程目录
+                current_menu = self.chrome.find_element_by_xpath("//ul[@class='content_left']/li[" + str(course_index) + "]")
+                current_menu.click()
                 time.sleep(2)
-                chapter = self.chrome.find_element_by_xpath("//ul[@class='content_rig']/li["+str(chapter_index)+"]")
+                # 点击右侧章节，直接播放当前章节第一个video
+                chapter = self.chrome.find_element_by_xpath("//ul[@class='content_rig']/li[" + str(chapter_index) + "]")
                 chapter_name = chapter.text
                 chapter.click()
                 time.sleep(5)
-                # video_list = self.chrome.find_elements_by_xpath("//li[@class='clearfix']")
                 video_list = self.chrome.find_elements_by_xpath("//div[@class='listPart']//li[@class='clearfix']")
-                if len(video_list) >= 2:
-                    for video_index in range(2, len(video_list)+1):
-                        video = self.chrome.find_element_by_xpath("//div[@class='listPart']//li[@class='clearfix']["+str(video_index)+"]")
-                        video_name = video.text
-                        course_chapter_video_list.append(course_name+"_"+chapter_name+"_"+video_name)
+                for video_index in range(1, len(video_list) + 1):
+                    video = self.chrome.find_element_by_xpath("//div[@class='listPart']//li[@class='clearfix'][" + str(video_index) + "]")
+                    video_name = video.text
+                    menu_chapter_video_list.append(menu_name + "_" + chapter_name + "_" + video_name)
+                    if len(video_list) > 1:
                         video.click()
                         time.sleep(5)
-                else:
-                    video = self.chrome.find_element_by_xpath("//div[@class='listPart']//li[@class='clearfix'][1]")
-                    video_name = video.text
-                    course_chapter_video_list.append(course_name + "_" + chapter_name + "_" + video_name)
+                    if len(menu_chapter_video_list) >= end_index:
+                        break
                 self.chrome.back()
-        #         # 视频列表
-        #         EC.presence_of_element_located((By.TAG_NAME, "video"))
-        #         time.sleep(5)
-        #         video_list = self.chrome.find_elements_by_class_name("summary")
-        #         for video in video_list:
-        #             video.click()
-        #             time.sleep(10)
-        #             self.chrome.back()
-        #             # result = self.proxy.har
-        #             # print(result['log']['entries'])
-        #             # for entry in result['log']['entries']:
-        #             #     _url = entry['request']['url']
-        #             #     print(_url)
-        #         # 考点详情
-        #         # "//pre"
-        #         # 考点精讲
-        #         # //div[@class='testBtn subBtnColor']
-        #         # 点击背题模式，选择目标div
-        #         # //div[@class='exambt']
-        #         self.chrome.back()
+                if len(menu_chapter_video_list) >= end_index:
+                    break
+            if len(menu_chapter_video_list) >= end_index:
+                break
+            #         # 视频列表
+            #         EC.presence_of_element_located((By.TAG_NAME, "video"))
+            #         time.sleep(5)
+            #         video_list = self.chrome.find_elements_by_class_name("summary")
+            #         for video in video_list:
+            #             video.click()
+            #             time.sleep(10)
+            #             self.chrome.back()
+            #             # result = self.proxy.har
+            #             # print(result['log']['entries'])
+            #             # for entry in result['log']['entries']:
+            #             #     _url = entry['request']['url']
+            #             #     print(_url)
+            #         # 考点详情
+            #         # "//pre"
+            #         # 考点精讲
+            #         # //div[@class='testBtn subBtnColor']
+            #         # 点击背题模式，选择目标div
+            #         # //div[@class='exambt']
+            #         self.chrome.back()
+        return menu_chapter_video_list[start_index-1:end_index]
 
-        # 根据请求记录获取m3u8的url地址
-        request_logs = self.proxy.har
-        for entry in request_logs['log']['entries']:
-            m3u8_url = entry['request']['url']
-            if "m3u8" in m3u8_url:
-                print(m3u8_url)
-                course_url_list.append(m3u8_url)
-        vedio_download(course_chapter_video_list,course_url_list)
-        originResp = self.chrome.page_source
-        return originResp
-
-import os
-import subprocess
-def vedio_download(name_list, url_list):
-    for name, _url in zip(name_list, url_list):
-        os.system("start N_m3u8DL-CLI "+_url+" --saveName "+name)
-        # myPopenObj = subprocess.Popen("start N_m3u8DL-CLI "+_url+" --saveName "+name)
-
+    def start_request(self, start_index, end_index, url=start_url):
+        print("============================")
+        # 首页登录
+        self.login(url)
+        # 访问指定数量视频的页面
+        name_list = self.visit_and_get_name_list(start_index, end_index)
+        # 获取视频地址
+        course_url_list = self.get_m3u8_url_list(start_index, end_index)
+        # for i,j in zip(name_list, course_url_list):
+        #     print(i+" : "+j)
+        self.vedio_download(name_list, course_url_list)
 
 if __name__ == "__main__":
+
     spider = ytEduCrawler()
-    spider.start_request()
+    spider.start_request(start_index=2,end_index=10)
     spider.quit()
