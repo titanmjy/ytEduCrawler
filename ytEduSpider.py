@@ -1,3 +1,6 @@
+import re
+import subprocess
+
 from selenium.webdriver.support.wait import WebDriverWait
 from selenium.webdriver.support import expected_conditions as EC
 from selenium.webdriver.common.by import By
@@ -47,6 +50,37 @@ class ytEduCrawler:
         # self.chrome.refresh()
         # time.sleep(2)
 
+    # 点击menu，找到chapter的index
+    def seek_chapter_start(self, start_index):
+        # 点击考点精讲
+        self.chrome.find_element_by_class_name("rout-kdjj").click()
+        time.sleep(2)
+        self.chrome.refresh()
+        time.sleep(2)
+        # 左侧课程导航目录
+        EC.presence_of_element_located((By.CLASS_NAME, "content_left"))
+        menu_list = self.chrome.find_elements_by_xpath("//ul[@class='content_left']//li")
+        current_index_count = 0
+        for menu_index in range(1, len(menu_list)+1):
+            time.sleep(2)
+            menu = self.chrome.find_element_by_xpath("//ul[@class='content_left']/li[" + str(menu_index) + "]")
+            # 点击左侧课程目录
+            menu.click()
+            EC.presence_of_element_located((By.CLASS_NAME, "content_rig"))
+            time.sleep(2)
+            chapter_length = len(self.chrome.find_elements_by_xpath("//ul[@class='content_rig']//li"))
+            chapter_index = 0
+            for i in range(1, chapter_length+1):
+                current_chapter_size_desc = self.chrome.find_element_by_xpath("//ul[@class='content_rig']/li["+str(i)+"]/span").text
+                current_chapter_size = int(re.sub("\D","",current_chapter_size_desc))
+                current_index_count += current_chapter_size
+                chapter_index += 1
+                if current_index_count >= start_index:
+                    break
+            if current_index_count >= start_index:
+                break
+        return menu_index, chapter_index
+
     # 根据请求记录获取m3u8的url地址列表，左开右闭，start_index: 视频编号，从1开始,end_index不包括
     def get_m3u8_url_list(self, start_index, end_index):
         course_url_list = []
@@ -56,37 +90,33 @@ class ytEduCrawler:
             if "m3u8" in m3u8_url:
                 # print(m3u8_url)
                 course_url_list.append(m3u8_url)
-        return course_url_list[start_index-1:end_index]
+        return course_url_list[start_index - end_index:end_index]
 
     def vedio_download(self, name_list, url_list):
         for name, _url in zip(name_list, url_list):
-            os.system("start N_m3u8DL-CLI " + _url + " --saveName " + name)
-            # myPopenObj = subprocess.Popen("start N_m3u8DL-CLI "+_url+" --saveName "+name)
+            print(name + ":" + _url)
+            os.system("start N_m3u8DL-CLI " + _url + " --saveName " + '"'+ name +'"')
+            # myPopenObj = subprocess.Popen("start N_m3u8DL-CLI " + _url + " --saveName " + name)
+            time.sleep(5)
 
     # 控制浏览器依次点击视频，并记录视频名称，左开右闭，start_index: 视频编号，从1开始,end_index不包括
     def visit_and_get_name_list(self, start_index, end_index):
-        # 点击考点精讲
-        self.chrome.find_element_by_class_name("rout-kdjj").click()
-        time.sleep(2)
-        self.chrome.refresh()
-        time.sleep(2)
-        # 左侧课程导航目录
-        EC.presence_of_element_located((By.CLASS_NAME, "content_left"))
-        menu_list = self.chrome.find_elements_by_xpath("//ul[@class='content_left']//li")
         menu_chapter_video_list = []
-        for course_index in range(1, len(menu_list)+1):
+        menu_start, chapter_start = self.seek_chapter_start(start_index)
+        menu_list = self.chrome.find_elements_by_xpath("//ul[@class='content_left']//li")
+        for menu_index in range(menu_start, len(menu_list)+1):
             time.sleep(2)
-            menu = self.chrome.find_element_by_xpath("//ul[@class='content_left']/li[" + str(course_index) + "]")
+            menu = self.chrome.find_element_by_xpath("//ul[@class='content_left']/li[" + str(menu_index) + "]")
             menu_name = menu.text
             # 点击左侧课程目录
             menu.click()
             EC.presence_of_element_located((By.CLASS_NAME, "content_rig"))
             time.sleep(2)
             chapter_list = self.chrome.find_elements_by_xpath("//ul[@class='content_rig']//li")
-            for chapter_index in range(1, len(chapter_list) + 1):
+            for chapter_index in range(chapter_start, len(chapter_list) + 1):
                 time.sleep(2)
                 # 点击左侧具体课程目录
-                current_menu = self.chrome.find_element_by_xpath("//ul[@class='content_left']/li[" + str(course_index) + "]")
+                current_menu = self.chrome.find_element_by_xpath("//ul[@class='content_left']/li[" + str(menu_index) + "]")
                 current_menu.click()
                 time.sleep(2)
                 # 点击右侧章节，直接播放当前章节第一个video
@@ -102,12 +132,12 @@ class ytEduCrawler:
                     if len(video_list) > 1:
                         video.click()
                         time.sleep(5)
-                    if len(menu_chapter_video_list) >= end_index:
+                    if len(menu_chapter_video_list) >= (end_index - start_index):
                         break
                 self.chrome.back()
-                if len(menu_chapter_video_list) >= end_index:
+                if len(menu_chapter_video_list) >= (end_index - start_index):
                     break
-            if len(menu_chapter_video_list) >= end_index:
+            if len(menu_chapter_video_list) >= (end_index - start_index):
                 break
             #         # 视频列表
             #         EC.presence_of_element_located((By.TAG_NAME, "video"))
@@ -129,8 +159,9 @@ class ytEduCrawler:
             #         # 点击背题模式，选择目标div
             #         # //div[@class='exambt']
             #         self.chrome.back()
-        return menu_chapter_video_list[start_index-1:end_index]
+        return menu_chapter_video_list[start_index - end_index:end_index]
 
+    # 左开右闭，start_index: 视频编号，从1开始,end_index不包括
     def start_request(self, start_index, end_index, url=start_url):
         print("============================")
         # 首页登录
@@ -143,8 +174,10 @@ class ytEduCrawler:
         #     print(i+" : "+j)
         self.vedio_download(name_list, course_url_list)
 
-if __name__ == "__main__":
 
-    spider = ytEduCrawler()
-    spider.start_request(start_index=2,end_index=10)
-    spider.quit()
+if __name__ == "__main__":
+    try:
+        spider = ytEduCrawler()
+        spider.start_request(start_index=4, end_index=8)
+    finally:
+        spider.quit()
