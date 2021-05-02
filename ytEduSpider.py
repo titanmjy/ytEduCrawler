@@ -73,13 +73,15 @@ class ytEduCrawler:
             for i in range(1, chapter_length+1):
                 current_chapter_size_desc = self.chrome.find_element_by_xpath("//ul[@class='content_rig']/li["+str(i)+"]/span").text
                 current_chapter_size = int(re.sub("\D","",current_chapter_size_desc))
+                video_index = start_index - current_index_count
                 current_index_count += current_chapter_size
                 chapter_index += 1
                 if current_index_count >= start_index:
                     break
             if current_index_count >= start_index:
                 break
-        return menu_index, chapter_index
+        # 返回menu chapter video 三级断点续传index
+        return menu_index, chapter_index, video_index
 
     # 根据请求记录获取m3u8的url地址列表，左开右闭，start_index: 视频编号，从1开始,end_index不包括
     def get_m3u8_url_list(self, start_index, end_index):
@@ -96,13 +98,12 @@ class ytEduCrawler:
         for name, _url in zip(name_list, url_list):
             print(name + ":" + _url)
             os.system("start N_m3u8DL-CLI " + _url + " --saveName " + '"'+ name +'"')
-            # myPopenObj = subprocess.Popen("start N_m3u8DL-CLI " + _url + " --saveName " + name)
-            time.sleep(5)
+            time.sleep(7)
 
     # 控制浏览器依次点击视频，并记录视频名称，左开右闭，start_index: 视频编号，从1开始,end_index不包括
     def visit_and_get_name_list(self, start_index, end_index):
         menu_chapter_video_list = []
-        menu_start, chapter_start = self.seek_chapter_start(start_index)
+        menu_start, chapter_start, video_start = self.seek_chapter_start(start_index)
         menu_list = self.chrome.find_elements_by_xpath("//ul[@class='content_left']//li")
         for menu_index in range(menu_start, len(menu_list)+1):
             time.sleep(2)
@@ -125,7 +126,7 @@ class ytEduCrawler:
                 chapter.click()
                 time.sleep(5)
                 video_list = self.chrome.find_elements_by_xpath("//div[@class='listPart']//li[@class='clearfix']")
-                for video_index in range(1, len(video_list) + 1):
+                for video_index in range(video_start, len(video_list) + 1):
                     video = self.chrome.find_element_by_xpath("//div[@class='listPart']//li[@class='clearfix'][" + str(video_index) + "]")
                     video_name = video.text
                     menu_chapter_video_list.append(menu_name + "_" + chapter_name + "_" + video_name)
@@ -178,6 +179,6 @@ class ytEduCrawler:
 if __name__ == "__main__":
     try:
         spider = ytEduCrawler()
-        spider.start_request(start_index=4, end_index=8)
+        spider.start_request(start_index=22, end_index=33)
     finally:
         spider.quit()
