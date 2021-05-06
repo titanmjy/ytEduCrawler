@@ -31,6 +31,7 @@ class ytEduCrawler:
     def quit(self):
         self.server.stop()
         self.chrome.quit()
+        time.sleep(3)
 
     def login(self, login_url):
         self.chrome.get(login_url)
@@ -51,7 +52,7 @@ class ytEduCrawler:
         # time.sleep(2)
 
     # 点击menu，找到chapter的index
-    def seek_chapter_start(self, start_index):
+    def seek_chapter_start(self, start_index, end_index):
         # 点击考点精讲
         self.chrome.find_element_by_class_name("rout-kdjj").click()
         time.sleep(2)
@@ -76,9 +77,9 @@ class ytEduCrawler:
                 video_index = start_index - current_index_count
                 current_index_count += current_chapter_size
                 chapter_index += 1
-                if current_index_count >= start_index:
+                if current_index_count >= start_index or current_index_count >= end_index:
                     break
-            if current_index_count >= start_index:
+            if current_index_count >= start_index or current_index_count >= end_index:
                 break
         # 返回menu chapter video 三级断点续传index
         return menu_index, chapter_index, video_index
@@ -103,7 +104,7 @@ class ytEduCrawler:
     # 控制浏览器依次点击视频，并记录视频名称，左开右闭，start_index: 视频编号，从1开始,end_index不包括
     def visit_and_get_name_list(self, start_index, end_index):
         menu_chapter_video_list = []
-        menu_start, chapter_start, video_start = self.seek_chapter_start(start_index)
+        menu_start, chapter_start, video_start = self.seek_chapter_start(start_index, end_index)
         menu_list = self.chrome.find_elements_by_xpath("//ul[@class='content_left']//li")
         for menu_index in range(menu_start, len(menu_list)+1):
             time.sleep(2)
@@ -179,6 +180,6 @@ class ytEduCrawler:
 if __name__ == "__main__":
     try:
         spider = ytEduCrawler()
-        spider.start_request(start_index=22, end_index=33)
+        spider.start_request(start_index=202, end_index=218)
     finally:
         spider.quit()
