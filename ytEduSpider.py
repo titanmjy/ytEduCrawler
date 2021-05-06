@@ -209,12 +209,19 @@ class ytEduCrawler:
                     time.sleep(1)
                 self.chrome.back()
 
+    def get_exercises(self):
+        self.chrome.find_element_by_class_name("routine").click()
+        time.sleep(2)
+        menu_list = self.chrome.find_elements_by_xpath("//ul[@class='chapter_contentleft']//li")
+
+
     def start_request(self, url=start_url):
         try:
             # 首页登录
             self.login(url)
             # self.get_videos(start_index=1, end_index=3)
-            self.get_knowledges()
+            # self.get_knowledges()
+            self.get_exercises()
         finally:
             self.quit()
 
