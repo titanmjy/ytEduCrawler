@@ -226,6 +226,43 @@ class ytEduCrawler:
             self.quit()
 
 
+class savePDF:
+    html_template = """
+    <!DOCTYPE html>
+    <html lang="en">
+    <head>
+        <meta charset="UTF-8">
+    </head>
+    <body>
+    {content}
+    </body>
+    </html>
+    """
+
+    def save_pdf(content, filename):
+        options = {
+            'page-size': 'Letter',
+            'margin-top': '0.75in',
+            'margin-right': '0.75in',
+            'margin-bottom': '0.75in',
+            'margin-left': '0.75in',
+            'encoding': "UTF-8",
+            'custom-header': [
+                ('Accept-Encoding', 'gzip')
+            ],
+            'cookie': [
+                ('cookie-name1', 'cookie-value1'),
+                ('cookie-name2', 'cookie-value2'),
+            ],
+            'outline-depth': 10,
+        }
+        html = html_template.format(content=content)
+        pdfkit.from_string(html, filename, options=options)
+
+    def merge_pdf(infnList, outfn):
+        pass
+
+
 if __name__ == "__main__":
     server = Server(r'D:\Programs\browsermob-proxy-2.1.4-bin\browsermob-proxy-2.1.4\bin\browsermob-proxy.bat')
     spider = ytEduCrawler()
