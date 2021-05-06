@@ -204,8 +204,9 @@ class ytEduCrawler:
                     except Exception as e:
                         print(e)
                     if knowledge_text_div_ele is not None:
-                        knowledge_text = knowledge_text_div_ele.text
-                        print(knowledge_text)
+                        knowledge_text = knowledge_text_div_ele.get_attribute('innerHTML')
+                        # print(knowledge_text)
+                        save_pdf(knowledge_text, "knowledge/"+menu_name + "_" + chapter_name + "_" + video_name+".pdf")
                     self.chrome.find_element_by_xpath("//div[@class='tabDiv']/span[1]").click()
                     time.sleep(1)
                 self.chrome.back()
@@ -214,6 +215,29 @@ class ytEduCrawler:
         self.chrome.find_element_by_class_name("routine").click()
         time.sleep(2)
         menu_list = self.chrome.find_elements_by_xpath("//ul[@class='chapter_contentleft']//li")
+        for menu_index in range(2, len(menu_list) + 1):
+            current_menu = self.chrome.find_element_by_xpath("//ul[@class='chapter_contentleft']/li[" + str(menu_index) + "]")
+            current_menu.click()
+            time.sleep(1)
+            current_menu_li = self.chrome.find_element_by_xpath("//ul[@class='chapter_contentleft']/li[" + str(menu_index) + "]/div[2]")
+            current_menu_li.click()
+            print("题目:"+current_menu_li.text)
+            time.sleep(1)
+            chapter_list = self.chrome.find_elements_by_xpath("//div[@class='chapter_contentright']//li")
+            for chapter_index in range(1,len(chapter_list)+1):
+                current_chapter = self.chrome.find_element_by_xpath("//div[@class='chapter_contentright']//li[" + str(chapter_index) + "]//span[@class='pct']")
+                current_chapter.click()
+                print("章节:"+current_chapter.text)
+                time.sleep(2)
+                self.chrome.find_element_by_xpath("//div[@class='moulde_p']//li[2]").click()
+                time.sleep(1)
+                question_list = self.chrome.find_elements_by_xpath("//div[@class='answerCard']//li")
+                for question in question_list:
+                    question.click()
+                    time.sleep(1)
+                    answer_div = self.chrome.find_element_by_id("exambt").get_attribute('innerHTML')
+                    save_pdf(answer_div, "question/"+question.text+".pdf")
+                self.chrome.back()
 
 
     def start_request(self, url=start_url):
@@ -227,37 +251,36 @@ class ytEduCrawler:
             self.quit()
 
 
-class savePDF:
-    def save_pdf(content, filename):
-        options = {
-            'page-size': 'Letter',
-            'margin-top': '0.75in',
-            'margin-right': '0.75in',
-            'margin-bottom': '0.75in',
-            'margin-left': '0.75in',
-            'encoding': "UTF-8",
-            'custom-header': [
-                ('Accept-Encoding', 'gzip')
-            ],
-            'cookie': [
-                ('cookie-name1', 'cookie-value1'),
-                ('cookie-name2', 'cookie-value2'),
-            ],
-            'outline-depth': 10,
-        }
-        html_template = """
-            <!DOCTYPE html>
-            <html lang="en">
-            <head>
-                <meta charset="UTF-8">
-            </head>
-            <body>
-            {content}
-            </body>
-            </html>
-            """
-        html = html_template.format(content=content)
-        pdfkit.from_string(html, filename, options=options)
+def save_pdf(content, filename):
+    options = {
+        'page-size': 'Letter',
+        'margin-top': '0.75in',
+        'margin-right': '0.75in',
+        'margin-bottom': '0.75in',
+        'margin-left': '0.75in',
+        'encoding': "UTF-8",
+        'custom-header': [
+            ('Accept-Encoding', 'gzip')
+        ],
+        'cookie': [
+            ('cookie-name1', 'cookie-value1'),
+            ('cookie-name2', 'cookie-value2'),
+        ],
+        'outline-depth': 10,
+    }
+    html_template = """
+        <!DOCTYPE html>
+        <html lang="en">
+        <head>
+            <meta charset="UTF-8">
+        </head>
+        <body>
+        {content}
+        </body>
+        </html>
+        """
+    html = html_template.format(content=content)
+    pdfkit.from_string(html, filename, options=options)
 
 
 if __name__ == "__main__":
