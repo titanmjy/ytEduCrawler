@@ -131,6 +131,7 @@ class ytEduCrawler:
                     video = self.chrome.find_element_by_xpath("//div[@class='listPart']//li[@class='clearfix'][" + str(video_index) + "]")
                     video_name = video.text
                     menu_chapter_video_list.append(menu_name + "_" + chapter_name + "_" + video_name)
+                    # knowledgeText
                     if len(video_list) > 1:
                         video.click()
                         time.sleep(5)
@@ -164,22 +165,22 @@ class ytEduCrawler:
         return menu_chapter_video_list[start_index - end_index:end_index]
 
     # 左开右闭，start_index: 视频编号，从1开始,end_index不包括
-    def start_request(self, start_index, end_index, url=start_url):
-        print("============================")
-        # 首页登录
-        self.login(url)
+    def get_videos(self, start_index, end_index):
         # 访问指定数量视频的页面
         name_list = self.visit_and_get_name_list(start_index, end_index)
         # 获取视频地址
         course_url_list = self.get_m3u8_url_list(start_index, end_index)
-        # for i,j in zip(name_list, course_url_list):
-        #     print(i+" : "+j)
         self.vedio_download(name_list, course_url_list)
+
+    def start_request(self, url=start_url):
+        try:
+            # 首页登录
+            self.login(url)
+            self.get_videos(start_index=216, end_index=225)
+        finally:
+            self.quit()
 
 
 if __name__ == "__main__":
-    try:
-        spider = ytEduCrawler()
-        spider.start_request(start_index=202, end_index=218)
-    finally:
-        spider.quit()
+    spider = ytEduCrawler()
+    spider.start_request()
