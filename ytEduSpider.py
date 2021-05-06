@@ -9,6 +9,7 @@ from browsermobproxy import Server
 import time
 from selenium.webdriver.chrome.options import Options
 import os
+import pdfkit
 
 
 class ytEduCrawler:
@@ -227,18 +228,6 @@ class ytEduCrawler:
 
 
 class savePDF:
-    html_template = """
-    <!DOCTYPE html>
-    <html lang="en">
-    <head>
-        <meta charset="UTF-8">
-    </head>
-    <body>
-    {content}
-    </body>
-    </html>
-    """
-
     def save_pdf(content, filename):
         options = {
             'page-size': 'Letter',
@@ -256,11 +245,19 @@ class savePDF:
             ],
             'outline-depth': 10,
         }
+        html_template = """
+            <!DOCTYPE html>
+            <html lang="en">
+            <head>
+                <meta charset="UTF-8">
+            </head>
+            <body>
+            {content}
+            </body>
+            </html>
+            """
         html = html_template.format(content=content)
         pdfkit.from_string(html, filename, options=options)
-
-    def merge_pdf(infnList, outfn):
-        pass
 
 
 if __name__ == "__main__":
