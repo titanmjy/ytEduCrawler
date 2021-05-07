@@ -1,6 +1,4 @@
 import re
-import subprocess
-
 from selenium.webdriver.support.wait import WebDriverWait
 from selenium.webdriver.support import expected_conditions as EC
 from selenium.webdriver.common.by import By
@@ -10,7 +8,7 @@ import time
 from selenium.webdriver.chrome.options import Options
 import os
 import pdfkit
-
+from PyPDF2 import PdfFileReader, PdfFileWriter
 
 class ytEduCrawler:
     domain = "ksbao.com"
@@ -163,7 +161,7 @@ class ytEduCrawler:
         time.sleep(2)
         self.chrome.refresh()
         time.sleep(2)
-        menu_chapter_video_list = []
+        chapter_info_pdf = []
         # 左侧课程导航目录
         EC.presence_of_element_located((By.CLASS_NAME, "content_left"))
         menu_list = self.chrome.find_elements_by_xpath("//ul[@class='content_left']//li")
@@ -177,6 +175,7 @@ class ytEduCrawler:
             time.sleep(2)
             chapter_list = self.chrome.find_elements_by_xpath("//ul[@class='content_rig']//li")
             for chapter_index in range(1, len(chapter_list) + 1):
+            # for chapter_index in range(1, 2):
                 time.sleep(2)
                 # 点击左侧具体课程目录
                 current_menu = self.chrome.find_element_by_xpath(
@@ -195,7 +194,6 @@ class ytEduCrawler:
                         video.click()
                         time.sleep(5)
                     video_name = video.text
-                    menu_chapter_video_list.append(menu_name + "_" + chapter_name + "_" + video_name)
                     self.chrome.find_element_by_xpath("//div[@class='tabDiv']/span[2]").click()
                     time.sleep(1)
                     knowledge_text_div_ele = None
@@ -205,40 +203,68 @@ class ytEduCrawler:
                         print(e)
                     if knowledge_text_div_ele is not None:
                         knowledge_text = knowledge_text_div_ele.get_attribute('innerHTML')
-                        # print(knowledge_text)
-                        save_pdf(knowledge_text, "knowledge/"+menu_name + "_" + chapter_name + "_" + video_name+".pdf")
+                        filepath = "knowledge/" + menu_name + "/"
+                        filename = chapter_name + "_" + video_name + ".pdf"
+                        if not os.path.exists(filepath):
+                            os.makedirs(filepath)
+                        current_pdf_info = {'menu': menu_name, 'chapter': chapter_name, 'filename': filename,'filepath': filepath}
+                        chapter_info_pdf.append(current_pdf_info)
+                        save_pdf(knowledge_text, filepath + filename)
                     self.chrome.find_element_by_xpath("//div[@class='tabDiv']/span[1]").click()
                     time.sleep(1)
                 self.chrome.back()
+        merge_pdf(chapter_info_pdf, 'knowledge.pdf')
 
     def get_exercises(self):
         self.chrome.find_element_by_class_name("routine").click()
         time.sleep(2)
+        chapter_info_pdf = []
         menu_list = self.chrome.find_elements_by_xpath("//ul[@class='chapter_contentleft']//li")
         for menu_index in range(2, len(menu_list) + 1):
             current_menu = self.chrome.find_element_by_xpath("//ul[@class='chapter_contentleft']/li[" + str(menu_index) + "]")
             current_menu.click()
             time.sleep(1)
             current_menu_li = self.chrome.find_element_by_xpath("//ul[@class='chapter_contentleft']/li[" + str(menu_index) + "]/div[2]")
+            print("题目:" + current_menu_li.text)
+            menu_name = current_menu_li.text
             current_menu_li.click()
-            print("题目:"+current_menu_li.text)
             time.sleep(1)
             chapter_list = self.chrome.find_elements_by_xpath("//div[@class='chapter_contentright']//li")
             for chapter_index in range(1,len(chapter_list)+1):
                 current_chapter = self.chrome.find_element_by_xpath("//div[@class='chapter_contentright']//li[" + str(chapter_index) + "]//span[@class='pct']")
+                chapter_name = current_chapter.text
+                print("章节:" + current_chapter.text)
                 current_chapter.click()
-                print("章节:"+current_chapter.text)
                 time.sleep(2)
                 self.chrome.find_element_by_xpath("//div[@class='moulde_p']//li[2]").click()
                 time.sleep(1)
                 question_list = self.chrome.find_elements_by_xpath("//div[@class='answerCard']//li")
                 for question in question_list:
                     question.click()
-                    time.sleep(1)
+                    time.sleep(2)
                     answer_div = self.chrome.find_element_by_id("exambt").get_attribute('innerHTML')
-                    save_pdf(answer_div, "question/"+question.text+".pdf")
+                    filepath = "question/" + menu_name + "/"
+                    filename = chapter_name + "_" + question.text +".pdf"
+                    if not os.path.exists(filepath):
+                        os.makedirs(filepath)
+                    save_pdf(answer_div, filepath + filename)
+                    # [
+                    #     {
+                    #         'menu': '一级标题',
+                    #         'chapter': '二级标题',
+                    #         'file': 'filename.pdf',
+                    #         'filepath': 'question/一级目录',
+                    #     }
+                    #     ...
+                    # ]
+                    current_pdf_info = {'menu': menu_name, 'chapter': chapter_name, 'filename': filename, 'filepath': filepath}
+                    chapter_info_pdf.append(current_pdf_info)
+                #     todo: delete break
+                break
                 self.chrome.back()
-
+            #     todo: delete break
+            break
+        merge_pdf(chapter_info_pdf, 'question.pdf')
 
     def start_request(self, url=start_url):
         try:
@@ -283,7 +309,61 @@ def save_pdf(content, filename):
     pdfkit.from_string(html, filename, options=options)
 
 
+def merge_pdf(infnList, outfn):
+    """
+    合并pdf
+    :param infnList: 要合并的PDF文件路径列表，每个元素是一个字典对象，menu,chapter,file,filepath三个key
+    :param outfn: 保存的PDF文件名
+    :return: None
+    """
+    pagenum = 0
+    pdf_output = PdfFileWriter()
+
+    for pdf in infnList:
+        pdf_input = PdfFileReader(open(pdf['filepath']+pdf['filename'], 'rb'))
+        # 获取当前pdf共用多少页
+        page_count = pdf_input.getNumPages()
+        for i in range(page_count):
+            pdf_output.addPage(pdf_input.getPage(i))
+        # 添加书签
+        parent_bookmark = pdf_output.addBookmark(pdf['menu'], pagenum=pagenum)
+
+
+        # # 先合并一级目录的内容
+        # first_level_title = pdf['menu']
+        # # dir_name = os.path.join(os.path.dirname(__file__), 'gen', first_level_title)
+        # # padf_path = os.path.join(dir_name, first_level_title + '.pdf')
+        # padf_path = pdf['filepath']
+        # pdf_input = PdfFileReader(open(padf_path, 'rb'))
+        # # 获取 pdf 共用多少页
+        # page_count = pdf_input.getNumPages()
+        # for i in range(page_count):
+        #     pdf_output.addPage(pdf_input.getPage(i))
+        # # 添加书签
+        # parent_bookmark = pdf_output.addBookmark(first_level_title, pagenum=pagenum)
+        # # 页数增加
+        # pagenum += page_count
+        #
+        # # 存在子章节
+        # if pdf['chapter']:
+        #     for child in pdf['chapter']:
+        #         second_level_title = child['menu']
+        #         # padf_path = os.path.join(dir_name, second_level_title + '.pdf')
+        #         # pdf_input = PdfFileReader(open(padf_path, 'rb'))
+        #         # 获取 pdf 共用多少页
+        #         page_count = pdf_input.getNumPages()
+        #         for i in range(page_count):
+        #             pdf_output.addPage(pdf_input.getPage(i))
+        #         # 添加书签
+        #         pdf_output.addBookmark(second_level_title, pagenum=pagenum, parent=parent_bookmark)
+        #         # 增加页数
+        #         pagenum += page_count
+    # 合并
+    pdf_output.write(open(outfn, 'wb'))
+
+
 if __name__ == "__main__":
     server = Server(r'D:\Programs\browsermob-proxy-2.1.4-bin\browsermob-proxy-2.1.4\bin\browsermob-proxy.bat')
     spider = ytEduCrawler()
     spider.start_request()
+
