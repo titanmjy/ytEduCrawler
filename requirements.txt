@@ -3,6 +3,7 @@ certifi==2020.12.5
 chardet==4.0.0
 idna==2.10
 pdfkit==0.6.1
+PyPDF2==1.26.0
 requests==2.25.1
 selenium==3.141.0
 urllib3==1.26.4
