@@ -1,3 +1,4 @@
+import functools
 import re
 from selenium.webdriver.support.wait import WebDriverWait
 from selenium.webdriver.support import expected_conditions as EC
@@ -9,6 +10,7 @@ from selenium.webdriver.chrome.options import Options
 import os
 import pdfkit
 from PyPDF2 import PdfFileReader, PdfFileWriter
+
 
 class ytEduCrawler:
     domain = "ksbao.com"
@@ -159,8 +161,8 @@ class ytEduCrawler:
         # 点击考点精讲
         self.chrome.find_element_by_class_name("rout-kdjj").click()
         time.sleep(2)
-        self.chrome.refresh()
-        time.sleep(2)
+        # self.chrome.refresh()
+        # time.sleep(2)
         # 左侧课程导航目录
         EC.presence_of_element_located((By.CLASS_NAME, "content_left"))
         filepath = "knowledge/"
@@ -176,7 +178,9 @@ class ytEduCrawler:
             EC.presence_of_element_located((By.CLASS_NAME, "content_rig"))
             time.sleep(2)
             chapter_list = self.chrome.find_elements_by_xpath("//ul[@class='content_rig']//li")
-            for chapter_index in range(1, len(chapter_list) + 1):
+            # todo modify
+            # for chapter_index in range(1, len(chapter_list) + 1):
+            for chapter_index in range(1, 2):
                 time.sleep(2)
                 content = ""
                 # 点击左侧具体课程目录
@@ -207,10 +211,10 @@ class ytEduCrawler:
                     if knowledge_text_div_ele is not None:
                         knowledge_text = knowledge_text_div_ele.get_attribute('innerHTML')
                         if chapter_mark:
-                            content += parse_html(title=menu_name + ":" + chapter_name, title2=video_name, content=knowledge_text)
+                            content += parse_html(title=menu_name + ":" + chapter_name, title2=video_name, content=knowledge_text, font_size="26px")
                             chapter_mark = False
                         else:
-                            content += parse_html(title2=video_name, content=knowledge_text)
+                            content += parse_html(title2=video_name, content=knowledge_text, font_size="26px")
                     self.chrome.find_element_by_xpath("//div[@class='tabDiv']/span[1]").click()
                     time.sleep(1)
                 filename = str(menu_index) + "_" + str(chapter_index) + ".pdf"
@@ -218,7 +222,6 @@ class ytEduCrawler:
                 self.chrome.back()
         merge_pdf(filepath, 'knowledge.pdf')
 
-    # todo 超过50题翻页
     def get_exercises(self):
         self.chrome.find_element_by_class_name("routine").click()
         time.sleep(2)
@@ -227,6 +230,7 @@ class ytEduCrawler:
         filepath = "exercise/"
         if not os.path.exists(filepath):
             os.makedirs(filepath)
+        #   从第2个开始，第一个是在线考试，非题库
         for menu_index in range(2, len(menu_list) + 1):
             current_menu = self.chrome.find_element_by_xpath("//ul[@class='chapter_contentleft']/li[" + str(menu_index) + "]")
             current_menu.click()
@@ -237,27 +241,44 @@ class ytEduCrawler:
             current_menu_li.click()
             time.sleep(1)
             chapter_list = self.chrome.find_elements_by_xpath("//div[@class='chapter_contentright']//li")
-            for chapter_index in range(1, len(chapter_list)+1):
-            # for chapter_index in range(1, 2):
+            # todo modify
+            # for chapter_index in range(1, len(chapter_list)+1):
+            for chapter_index in range(1, 2):
                 current_chapter = self.chrome.find_element_by_xpath("//div[@class='chapter_contentright']//li[" + str(chapter_index) + "]//span[@class='pct']")
                 chapter_name = current_chapter.text
                 print("章节:" + current_chapter.text)
+                test_count_text = self.chrome.find_elements_by_class_name("testCount")[chapter_index-1].text
+                test_count = int(re.search("/([0-9]+)", test_count_text).group(1))
+                count = 1
+                if test_count % 50:
+                    count = test_count // 50 + 1
+                else:
+                    count = test_count // 50
                 current_chapter.click()
                 time.sleep(2)
+                # 点击背题模式
                 self.chrome.find_element_by_xpath("//div[@class='moulde_p']//li[2]").click()
                 time.sleep(1)
-                exercise_list = self.chrome.find_elements_by_xpath("//div[@class='answerCard']//li")
                 content = ""
                 chapter_mark = True
-                for exercise in exercise_list:
-                    exercise.click()
-                    time.sleep(2)
-                    answer_div = self.chrome.find_element_by_id("exambt").get_attribute('innerHTML')
-                    if chapter_mark:
-                        content += parse_html(title=menu_name + ":" + chapter_name, content=answer_div)
-                        chapter_mark = False
-                    else:
-                        content += parse_html(content=answer_div)
+                while count:
+                    exercise_list = self.chrome.find_elements_by_xpath("//div[@class='answerCard']//li")
+                    for exercise in exercise_list:
+                        exercise.click()
+                        time.sleep(2)
+                        answer_div = self.chrome.find_element_by_id("exambt").get_attribute('innerHTML')
+                        # todo bug fix
+                        # [\d\D]*表示包括\n的任意多个字符，.*表示不包括换行的任意多个字符,?表示非贪婪模式
+                        answer_div1 = re.sub('<div><div class="buttonLeft">[\d\D]*?<div class="buttonRight">[\d\D]*?</div></div>', "", answer_div)
+                        if chapter_mark:
+                            content += parse_html(title=menu_name + ":" + chapter_name, content=answer_div1)
+                            chapter_mark = False
+                        else:
+                            content += parse_html(content=answer_div)
+                    count -= 1
+                    if count >= 1:
+                        self.chrome.find_element_by_class_name("moveNextUI").click()
+                        time.sleep(1)
                 filename = str(menu_index) + "_" + str(chapter_index) + ".pdf"
                 save_pdf(content, filepath + filename)
                 self.chrome.back()
@@ -275,22 +296,29 @@ class ytEduCrawler:
             self.quit()
 
 
-def parse_html(title="", title2="", content=""):
+# string format {{}}显示大括号，占位符替换最内层的{}
+def parse_html(title="", title2="", content="", font_size="16px"):
     html_template = """
         <!DOCTYPE html>
         <html lang="en">
         <head>
             <meta charset="UTF-8">
+            <style type="text/css">
+                div{{font-size:{font_size}}}
+            </style>
         </head>
         <body>
-        <h2>{title}</h2>
-        <h3>{title2}</h3>
-        {content}
+            <h2>{title}</h2>
+            <h3>{title2}</h3>
+            <div>
+                {content}
+            </div>
         </body>
         </html>
         """
-    html = html_template.format(title=title, title2=title2, content=content)
+    html = html_template.format(title=title, title2=title2, content=content,font_size=font_size)
     return html
+
 
 def save_pdf(html, filename):
     options = {
@@ -312,6 +340,25 @@ def save_pdf(html, filename):
     pdfkit.from_string(html, filename, options=options)
 
 
+def file_compare(file1, file2):
+    file1_menu = int(re.search("([0-9]+)_([0-9]+)", file1).group(1))
+    file1_chapter = int(re.search("([0-9]+)_([0-9]+)", file1).group(2))
+    file2_menu = int(re.search("([0-9]+)_([0-9]+)", file2).group(1))
+    file2_chapter = int(re.search("([0-9]+)_([0-9]+)", file2).group(2))
+    if file1_menu > file2_menu:
+        return 1
+    elif file1_menu == file2_menu:
+        if file1_chapter > file2_chapter:
+            return 1
+        elif file1_chapter == file2_chapter:
+            return 0
+        else:
+            return -1
+    else:
+        return -1
+
+
+# todo 页码
 def merge_pdf(filepath, outfn):
     """
     合并pdf
@@ -320,7 +367,10 @@ def merge_pdf(filepath, outfn):
     :return: None
     """
     pdf_output = PdfFileWriter()
-    infn_list = [filepath + x for x in os.listdir(filepath)]
+    key = functools.cmp_to_key(file_compare)
+    pdf_list = os.listdir(filepath)
+    pdf_list.sort(key=key)
+    infn_list = [filepath + x for x in pdf_list]
     for pdf in infn_list:
         pdf_input = PdfFileReader(open(pdf, 'rb'))
         # 获取当前pdf共用多少页
@@ -330,9 +380,7 @@ def merge_pdf(filepath, outfn):
     # 合并
     pdf_output.write(open(outfn, 'wb'))
 
-
 if __name__ == "__main__":
     server = Server(r'D:\Programs\browsermob-proxy-2.1.4-bin\browsermob-proxy-2.1.4\bin\browsermob-proxy.bat')
     spider = ytEduCrawler()
     spider.start_request()
-
