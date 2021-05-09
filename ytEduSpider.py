@@ -178,14 +178,11 @@ class ytEduCrawler:
             EC.presence_of_element_located((By.CLASS_NAME, "content_rig"))
             time.sleep(2)
             chapter_list = self.chrome.find_elements_by_xpath("//ul[@class='content_rig']//li")
-            # todo modify
-            # for chapter_index in range(1, len(chapter_list) + 1):
-            for chapter_index in range(1, 2):
+            for chapter_index in range(1, len(chapter_list) + 1):
                 time.sleep(2)
                 content = ""
                 # 点击左侧具体课程目录
-                current_menu = self.chrome.find_element_by_xpath(
-                    "//ul[@class='content_left']/li[" + str(menu_index) + "]")
+                current_menu = self.chrome.find_element_by_xpath("//ul[@class='content_left']/li[" + str(menu_index) + "]")
                 current_menu.click()
                 time.sleep(2)
                 # 点击右侧章节，直接播放当前章节第一个video
@@ -231,7 +228,7 @@ class ytEduCrawler:
         if not os.path.exists(filepath):
             os.makedirs(filepath)
         #   从第2个开始，第一个是在线考试，非题库
-        for menu_index in range(2, len(menu_list) + 1):
+        for menu_index in range(4, len(menu_list) + 1):
             current_menu = self.chrome.find_element_by_xpath("//ul[@class='chapter_contentleft']/li[" + str(menu_index) + "]")
             current_menu.click()
             time.sleep(1)
@@ -241,9 +238,12 @@ class ytEduCrawler:
             current_menu_li.click()
             time.sleep(1)
             chapter_list = self.chrome.find_elements_by_xpath("//div[@class='chapter_contentright']//li")
-            # todo modify
-            # for chapter_index in range(1, len(chapter_list)+1):
-            for chapter_index in range(1, 2):
+            for chapter_index in range(1, len(chapter_list)+1):
+                # 点击左侧具体课程目录
+                current_menu = self.chrome.find_element_by_xpath("//ul[@class='chapter_contentleft']/li[" + str(menu_index) + "]")
+                current_menu.click()
+                time.sleep(1)
+                # 点击右侧章节目录
                 current_chapter = self.chrome.find_element_by_xpath("//div[@class='chapter_contentright']//li[" + str(chapter_index) + "]//span[@class='pct']")
                 chapter_name = current_chapter.text
                 print("章节:" + current_chapter.text)
@@ -267,14 +267,13 @@ class ytEduCrawler:
                         exercise.click()
                         time.sleep(2)
                         answer_div = self.chrome.find_element_by_id("exambt").get_attribute('innerHTML')
-                        # todo bug fix
                         # [\d\D]*表示包括\n的任意多个字符，.*表示不包括换行的任意多个字符,?表示非贪婪模式
                         answer_div1 = re.sub('<div><div class="buttonLeft">[\d\D]*?<div class="buttonRight">[\d\D]*?</div></div>', "", answer_div)
                         if chapter_mark:
                             content += parse_html(title=menu_name + ":" + chapter_name, content=answer_div1)
                             chapter_mark = False
                         else:
-                            content += parse_html(content=answer_div)
+                            content += parse_html(content=answer_div1)
                     count -= 1
                     if count >= 1:
                         self.chrome.find_element_by_class_name("moveNextUI").click()
@@ -290,8 +289,8 @@ class ytEduCrawler:
             # 首页登录
             self.login(url)
             # self.get_videos(start_index=1, end_index=3)
-            self.get_knowledges()
-            # self.get_exercises()
+            # self.get_knowledges()
+            self.get_exercises()
         finally:
             self.quit()
 
@@ -308,8 +307,8 @@ def parse_html(title="", title2="", content="", font_size="16px"):
             </style>
         </head>
         <body>
-            <h2>{title}</h2>
-            <h3>{title2}</h3>
+            <h1>{title}</h1>
+            <h2>{title2}</h2>
             <div>
                 {content}
             </div>
